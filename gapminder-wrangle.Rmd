@@ -1,0 +1,270 @@
+---
+title: "gapminder-wrangle"
+author: "MianMian"
+date: "2020/7/9"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, eval = F}
+library(tidyverse)     ## install.packages("tidyverse")
+```
+
+```{r, message = F, echo = F}
+## read gapminder csv. Note the readr:: prefix identifies which package it's in
+gapminder <- readr::read_csv('data/gapminder.csv') 
+```
+
+```{r}
+tail(gapminder) # shows last 6
+head(gapminder, 10) # shows first X that you indicate
+```
+
+```{r}
+str(gapminder) # ?str - displays the structure of an object
+```
+
+There are five `dplyr` functions that you will use to do the vast majority of data manipulations:
+
+- `filter()`: pick observations by their values
+- `select()`: pick variables by their names
+- `mutate()`: create new variables with functions of existing variables
+- `summarise()`: collapse many values down to a single summary
+- `arrange()`: reorder the rows
+
+These can all be used in conjunction with `group_by()` which changes the scope of each function from operating on the entire dataset to operating on it group-by-group. These six functions provide the verbs for a language of data manipulation.
+
+All verbs work similarly:
+
+1. The first argument is a data frame.
+2. The subsequent arguments describe what to do with the data frame. You can refer to columns in the data frame directly without using `$`.
+3. The result is a new data frame.
+
+---
+
+### `filter()` subsets data row-wise (observations)
+You will want to isolate bits of your data; maybe you want to only look at a single country or a few years. R calls this subsetting.
+
+`filter()` is a function in dplyr that takes logical expressions and returns the rows for which all are TRUE.
+
+---
+
+```{r,eval=F}
+filter(gapminder, lifeExp < 29)
+```
+
+---
+
+How about if we want two country names? We can’t use the `==` operator here, because it can only operate on one thing at a time. We will use the `%in%` operator:
+
+```{r}
+filter(gapminder, gapminder$country %in% c("Mexico", "Peru"))
+```
+
+---
+### `select()` subsets data column-wise (variables)
+We use `select()` to subset the data on variables or columns.
+
+- We can select multiple columns with a comma, after we specify the data frame (gapminder).
+```{r}
+gap1 <- dplyr::select(gapminder, year, country, lifeExp) 
+head(gap1, 3)
+```
+- We can select a range of variables with a semicolon.
+```{r}
+gap2 <- dplyr::select(gapminder, year:lifeExp) 
+head(gap2, 3)
+```
+- We can select columns with indices.
+```{r}
+gap3 <- dplyr::select(gapminder, 1, 2, 4) 
+head(gap3, 3)
+```
+
+- We can also use `-` to deselect columns
+```{r}
+gap4 <- dplyr::select(gapminder, -continent, -lifeExp) # you can use - to deselect columns
+head(gap4, 3)
+```
+
+---
+### Meet the new pipe `%>%` operator
+
+Here’s what it looks like: `%>%`. The RStudio keyboard shortcut: Ctrl + Shift + M (Windows), Cmd + Shift + M (Mac).
+
+Let’s demo then I’ll explain:
+```{r}
+gapminder %>% head(3)
+```
+---
+This is equivalent to `head(gapminder, 3)`. This pipe operator takes the thing on the left-hand-side and **pipes** it into the function call on the right-hand-side. It literally drops it in as the first argument.
+
+This means that instead of this:
+```{r, eval = F}
+## instead of this...
+gap_cambodia  <- filter(gapminder, country == "Cambodia")
+gap_cambodia2 <- dplyr::select(gap_cambodia, -continent, -lifeExp) 
+
+## ...we can do this
+gap_cambodia  <- gapminder %>% filter(country == "Cambodia")
+gap_cambodia2 <- gap_cambodia %>% dplyr::select(-continent, -lifeExp) 
+```
+
+---
+### Revel in the convenience
+We can use the pipe to chain those two operations together:
+```{r}
+gap_cambodia  <- gapminder %>% 
+  filter(country == "Cambodia") %>%
+  dplyr::select(-continent, -lifeExp) 
+```
+
+---
+### `mutate()` adds new variables
+
+Let’s say we needed to add an index column so we know which order these data came in. Let’s not make a new variable, let’s add a column to our gapminder data frame. How do we do that? With the ·mutate()· function.
+---
+Imagine we want to know each country’s annual GDP. We can multiply pop by gdpPercap to create a new column named gdp.
+
+```{r}
+gapminder %>%
+  mutate(gdp = pop * gdpPercap)
+```
+
+---
+### Functions in `mutate()`
+
+- arithmetic operators: `+, -, *, /, ^`
+- modular arithmetic: `%/%, %%`
+- logs: `log(), log2(), log10()`
+- offsets: `lead(), lag()`
+- cumulative and rolling aggregates: `cumsum(), cumprod(), cummin(), cummax(), cummean()`
+- logical comparisons: `<, <=, >, >=, !=`
+- ranking: `min_rank(), row_number(), dense_rank(), percent_rank(), cume_dist(), ntile()`
+
+- Any R or custom function that returns a **vector** with the same length as the number of rows
+---
+### `group_by()` operates on groups
+
+What if we wanted to know the total population on each continent in 2002? Answering this question requires a **grouping variable**.
+
+---
+By using `group_by()` we can set our grouping variable to `continent` and create a new column called `cont_pop` that will add up all country populations by their associated continents.
+```{r}
+gapminder %>%
+  filter(year == 2002) %>%
+  group_by(continent) %>% 
+  mutate(cont_pop = sum(pop)) %>% 
+  dplyr::select(continent,cont_pop)
+```
+---
+
+### `summarize()` with `group_by()`
+
+We want to operate on a group, but actually collapse or distill the output from that group. The `summarize()` function will do that for us.
+
+```{r}
+gapminder %>%
+  group_by(continent) %>%
+  summarize(cont_pop = sum(pop)) %>%
+  ungroup()
+#summarize 会去掉重复
+```
+
+We can use more than one grouping variable. Let’s get total populations by continent and year.
+```{r}
+gapminder %>%
+  group_by(continent, year) %>%
+  summarize(cont_pop = sum(pop))
+```
+
+---
+### Functions in `summarise()`
+
+- location: `mean(x), median(x)`
+- spread: `sd(x), IQR(x), mad(x)`
+- rank: `min(x), quantile(x, 0.25), max(x)`
+- position: `first(x), nth(x, 2), last(x)`
+- count: `n(x), sum(!is.na(x)), n_distinct(x)`
+- any base R or custom function that returns **one summary value**
+
+---
+### arrange() orders columns
+This is ordered alphabetically, which is cool. But let’s say we wanted to order it in ascending order for year. The dplyr function is arrange().
+
+```{r}
+gapminder %>%
+  group_by(continent, year) %>%
+  summarize(cont_pop = sum(pop)) %>%
+  arrange(desc(year))
+```
+- Use `desc(var)` to arrange in decreasing order
+- Possible to use multiple variables (categorical)
+
+---
+## Joining datasets
+
+---
+We will only talk about this briefly here, but you can refer to this more as you have your own datasets that you want to join. This describes the figure above:
+
+- `left_join` keeps everything from the left table and matches as much as it can from the right table. In R, the first thing that you type will be the left table (because it’s on the left)
+- `right_join` keeps everything from the right table and matches as much as it can from the left table
+- `inner_join` only keeps the observations that are similar between the two tables
+- `full_join` keeps all observations from both tables.
+
+---
+Let’s play with these CO2 emissions data to illustrate:
+
+```{r, message = F}
+## read in the data. (same URL as yesterday, with co2.csv instead of gapminder.csv)
+co2 <- read_csv("data/co2.csv")
+
+## explore
+co2 %>% head()
+co2 %>% dim() # 12
+```
+---
+```{r}
+## create new variable that is only 2007 data
+gap_2007 <- gapminder %>%
+  filter(year == 2007) 
+gap_2007 %>% dim() # 142  
+
+## left_join gap_2007 to co2
+lj <- left_join(gap_2007, co2, by = "country")
+
+## explore
+lj %>% dim() #142
+lj %>% head(3) # lots of NAs in the co2_2017 columm
+```
+---
+```{r}
+## right_join gap_2007 and co2
+rj <- right_join(gap_2007, co2, by = "country")
+
+## explore
+rj %>% dim() # 12
+rj %>% head(3)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
